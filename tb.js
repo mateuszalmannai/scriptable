@@ -777,7 +777,8 @@ function scriptableUI() {
       }
       a.addAction('OK'); a.addCancelAction('Cancel');
       if ((await a.presentAlert()) === -1) return null;
-      return fields.map((_, i) => a.textFieldValue(i));
+      // textFieldValue returns null for an empty field; callers expect strings.
+      return fields.map((_, i) => a.textFieldValue(i) ?? '');
     },
     // table shows rows; with selectable it returns the tapped row index, else -1.
     async table(title, summary, rows, selectable) {
@@ -825,10 +826,16 @@ async function scriptableTransport({ method, url, headers, body }) {
 const sleepMs = (ms) => new Promise((done) => Timer.schedule(ms, false, done));
 
 async function askToken(ui, why) {
-  const v = await ui.form('Timebutler token',
-    (why ? why + '\n\n' : '') + 'Paste your personal access token (tb_…). Create it on app.timebutler.com/api/v2/docs → "Create or revoke a personal token". It is stored in the iOS Keychain.',
-    [{ placeholder: 'tb_…', secure: true }]);
-  const t = v && v[0].trim();
+  const msg = (why ? why + '\n\n' : '') + 'Paste your personal access token (tb_…). Create it on app.timebutler.com/api/v2/docs → "Create or revoke a personal token". It is stored in the iOS Keychain.';
+  let v = await ui.form('Timebutler token', msg, [{ placeholder: 'tb_…', secure: true }]);
+  if (!v) throw aborted();
+  let t = v[0].trim();
+  if (!t) {
+    // Secure fields can come back empty (e.g. paste not registered); retry with a visible field.
+    v = await ui.form('Timebutler token', 'The hidden field came back empty. Paste the token here instead (it will be visible).', [{ placeholder: 'tb_…' }]);
+    if (!v) throw aborted();
+    t = v[0].trim();
+  }
   if (!t) throw new Error('No token entered.');
   Keychain.set(KEYCHAIN_KEY, t);
   return t;
