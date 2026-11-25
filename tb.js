@@ -826,17 +826,19 @@ async function scriptableTransport({ method, url, headers, body }) {
 const sleepMs = (ms) => new Promise((done) => Timer.schedule(ms, false, done));
 
 async function askToken(ui, why) {
-  const msg = (why ? why + '\n\n' : '') + 'Paste your personal access token (tb_…). Create it on app.timebutler.com/api/v2/docs → "Create or revoke a personal token". It is stored in the iOS Keychain.';
-  let v = await ui.form('Timebutler token', msg, [{ placeholder: 'tb_…', secure: true }]);
-  if (!v) throw aborted();
-  let t = v[0].trim();
-  if (!t) {
-    // Secure fields can come back empty (e.g. paste not registered); retry with a visible field.
-    v = await ui.form('Timebutler token', 'The hidden field came back empty. Paste the token here instead (it will be visible).', [{ placeholder: 'tb_…' }]);
+  const intro = (why ? why + '\n\n' : '') + 'Copy your personal access token (tb_…) to the clipboard first. Create it on app.timebutler.com/api/v2/docs → "Create or revoke a personal token". It is stored in the iOS Keychain.';
+  // Read the token from the clipboard: Alert text fields are not reliable on every iOS/Scriptable version.
+  const clip = String(Pasteboard.pasteString() ?? '').trim();
+  let t = '';
+  if (/^tb_\S+$/.test(clip)) {
+    if (!(await ui.confirm('Timebutler token', `${intro}\n\nUse the token on the clipboard (${clip.slice(0, 6)}…${clip.slice(-4)})?`))) throw aborted();
+    t = clip;
+  } else {
+    const v = await ui.form('Timebutler token', intro + '\n\nNo tb_… token found on the clipboard; paste it here instead.', [{ placeholder: 'tb_…' }]);
     if (!v) throw aborted();
     t = v[0].trim();
   }
-  if (!t) throw new Error('No token entered.');
+  if (!t) throw new Error('No token entered. Copy the token (tb_…) to the clipboard and run tb again.');
   Keychain.set(KEYCHAIN_KEY, t);
   return t;
 }
