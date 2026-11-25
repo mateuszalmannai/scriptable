@@ -1,0 +1,9 @@
+{
+  "name": "scriptable-scripts",
+  "private": true,
+  "description": "Scripts for the Scriptable iOS app",
+  "license": "MIT",
+  "scripts": {
+    "test": "node test/tb.test.js && TZ=America/New_York node test/tb.test.js"
+  }
+}

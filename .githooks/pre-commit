@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Block commits that contain secrets or that would publish a private email address.
+# Enable per clone with: git config core.hooksPath .githooks
+set -euo pipefail
+
+# Commits must use the GitHub noreply address. A global or included git config may hold a
+# work or private address, so set it for this clone:
+#   git config user.email <id>+<user>@users.noreply.github.com
+email="$(git config user.email || true)"
+if [[ "$email" != *@users.noreply.github.com ]]; then
+  echo "pre-commit: user.email is '${email:-unset}', not a GitHub noreply address; commit blocked" >&2
+  echo "            git config user.email <id>+<user>@users.noreply.github.com" >&2
+  exit 1
+fi
+
+if ! command -v gitleaks >/dev/null; then
+  echo "pre-commit: gitleaks is not installed (brew install gitleaks); commit blocked" >&2
+  exit 1
+fi
+exec gitleaks git --staged --redact --no-banner
